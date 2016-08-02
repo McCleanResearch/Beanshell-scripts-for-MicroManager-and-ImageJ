@@ -1,0 +1,28 @@
+
+//Object result = new bsh.Interpreter().source("snapSingleImage.bsh");
+//run("snapSingleImage.bsh");
+//import org.micromanager.MMStudio;
+
+import org.micromanager.api.PositionList;
+import org.micromanager.api.MultiStagePosition;
+import org.micromanager.api.StagePosition;
+
+
+gui.clearMessageWindow();
+gui.closeAllAcquisitions();
+PositionList pl = gui.getPositionList();
+
+public void callScript(String scriptName){
+	Interpreter bsh2 = new Interpreter();
+	bsh2.set( "pl", pl);
+	bsh2.set( "mmc", mmc);
+	bsh2.source(scriptName);
+}
+//long startTimeMillis=System.currentTimeMillis();
+
+for(int i=1;i<200;i++){
+	print(i);
+	callScript("Load_from_CSV_2016_06_13_3.bsh");
+	System.gc();
+	print(i);
+}

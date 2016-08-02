@@ -1,0 +1,74 @@
+/*
+ *     Written by Cameron Stewart
+						Research intern at UW-Madison
+               cameronstewart92@gmail.com
+    Last revised on March 9, 2016
+SUMMARY: This code can be used to control a ControlAnything board via serial communication through a USB
+
+INPUT:
+
+OUTPUT: Serial messages out of USB port
+
+REQUIRES: A "UserDefinedGenericSerialDevice" in micromanager's hardware configuration. Currently, micromanager has a "Taylor_ControlAnythingCom7"
+hardware configuration that works with this.
+Also, sometimes Windows 10 overwrites a RXTX file that we need. The fix can be downloaded from here: http://www.ifamilysoftware.com/news37.html. 
+You might need to re-download this every time that windows 10 is restarted.
+
+ */
+
+
+import mmcorej.CharVector;   //"mmcore" means Micromanager Core API. It is described here: "https://valelab.ucsf.edu/~MM/doc/mmcorej/mmcorej/CMMCore.html"
+									// more micromanager programming options can be found here: "https://micro-manager.org/wiki/Micro-Manager_Programming%20Guide"
+gui.clearMessageWindow();
+
+public void sendControlMessage(int relay, boolean on){
+	// The port corresponds to the COM port (on Windows) or Serial port where the ControlAnything RS81 device is located.
+	//These commands, obscure Chars, come from the serial communication standard as explained on ControlAnything.com
+	//
+	CharVector relayOn = new CharVector(); 
+	relayOn.add((char) 254);
+	relayOn.add((char) (relay+7)); 
+	
+	CharVector relayOff = new CharVector(); 
+	relayOff.add((char) 254);
+	relayOff.add((char) (relay-1));
+	if (on)
+		mmc.writeToSerialPort(port, relayOn);
+	else
+		mmc.writeToSerialPort(port, relayOff);
+}
+public void sendControlMessage(String command){
+	CharVector initialize = new CharVector(); 
+	initialize.add((char) 254);//enter command mode
+	initialize.add((char) 248); //enable all
+	if (command=="Initialize")
+		mmc.writeToSerialPort(port, initialize);
+	else
+		print("Improper command entered.");
+}
+int i=0;
+
+//*************************************************************************************************************************
+//The Relay variable assignments, initialization command and the while loop form an example of how this code can be used.
+// Only the code below here should need to be modified to control the relay board ******************************************
+//**************************************************************************************************************************
+
+
+//RELAY BOARD
+String port = "COM7"; //This is the USB port that the relay board is attached to. On Windows this can be found via Control Panel>Device Manager>Ports
+int lightRelay=1; //This is the relay on the RS81 control board which controls power to the LED
+int pumpRelay=8; //																	controls power to the pump
+int flowRelay=4;//																	controls power to pinch solenoid
+int mediaRelay=5;
+
+sendControlMessage("Initialize");
+while(true){
+	i++;
+	sendControlMessage(pumpRelay, false);
+	sendControlMessage(mediaRelay,true);
+	Thread.sleep(1000);
+	//sendControlMessage(mediaRelay,false);
+	sendControlMessage(pumpRelay, true);
+	sendControlMessage(mediaRelay,false);
+	Thread.sleep(1000);
+}

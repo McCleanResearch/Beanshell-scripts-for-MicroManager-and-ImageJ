@@ -1,0 +1,227 @@
+import fiji.plugin.trackmate.Model;
+import fiji.plugin.trackmate.Settings;
+import fiji.plugin.trackmate.TrackMate;
+import fiji.plugin.trackmate.SelectionModel;
+import fiji.plugin.trackmate.Logger;
+import fiji.plugin.trackmate.detection.LogDetectorFactory;
+import fiji.plugin.trackmate.tracking.sparselap.SparseLAPTrackerFactory;
+import fiji.plugin.trackmate.tracking.LAPUtils;
+import ij.IJ;
+import fiji.plugin.trackmate.visualization.hyperstack.HyperStackDisplayer;
+import fiji.plugin.trackmate.features.FeatureFilter;
+import fiji.plugin.trackmate.io.TmXmlReader;
+import sys;
+import fiji.plugin.trackmate.features.track.TrackDurationAnalyzer;
+import fiji.plugin.trackmate.providers.DetectorProvider;
+import fiji.plugin.trackmate.providers.TrackerProvider;
+import fiji.plugin.trackmate.providers.SpotAnalyzerProvider;
+import fiji.plugin.trackmate.providers.EdgeAnalyzerProvider;
+import fiji.plugin.trackmate.providers.TrackAnalyzerProvider;
+import fiji.plugin.trackmate.features.spot.SpotContrastAndSNRAnalyzer;
+import fiji.plugin.trackmate.features.spot.SpotIntensityAnalyzerFactory;
+import fiji.plugin.trackmate.features.spot.SpotContrastAndSNRAnalyzerFactory;
+import fiji.plugin.trackmate.FeatureModel;
+import fiji.plugin.trackmate.TrackModel;
+import fiji.plugin.trackmate.Spot;
+import fiji.plugin.trackmate.action.CaptureOverlayAction;
+import ij.ImagePlus;
+import ij.plugin.frame.RoiManager;
+import java.util.Map;
+import java.util.Hashtable;
+import java.util.Date;
+import java.util.Set;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.lang.Integer;
+import java.lang.Double;
+import ij.ImagePlus;
+import ij.measure.ResultsTable;
+//import javax.swing.filechooser.FileNameExtensionFilter;
+
+
+rm = RoiManager.getInstance();
+if (rm==null) rm = new RoiManager();
+File xml = new File(IJ.getFilePath("Select the trackmate xml file"));
+File dir=new File(IJ.getDir("Select the directory with images to be analyzed"));
+File[] images=dir.listFiles();
+
+ResultsTable rt=new ResultsTable();
+public analyzeTrack(String imageName){
+	print("about to process "+imageName);
+	ImagePlus imp = IJ.openImage(imageName);
+	imp.show();
+	int frames=imp.getNFrames();
+	int slices=imp.getNSlices();
+	int channels=imp.getNChannels();
+	//If there are more slices than frames, assume that the two need to be swapped
+	if(slices>frames){
+		imp.setDimensions(channels,frames,slices);
+	}
+	IJ.run(imp, "Remove Outliers...", "radius=2 threshold=1 which=Bright stack");
+	IJ.run(imp, "Subtract Background...", "rolling=30 stack");
+	IJ.run(imp, "Set Scale...", "distance=1 known=1 pixel=3.333 unit=µm");
+	//IJ.run("TrackMate", "");
+	imp.show();
+	
+	//String filePath=IJ.getFilePath("Select the trackmate xml file");
+	
+	TmXmlReader reader = new TmXmlReader(xml);
+	if (!reader.isReadingOk())
+	    sys.exit(reader.getErrorMessage());
+	//----------------------------
+	// Create the model object now
+	//----------------------------
+	    
+	// Some of the parameters we configure below need to have
+	// a reference to the model at creation. So we create an
+	// empty model now.
+	    
+	Model model = new Model();
+	    
+	// Send all messages to ImageJ log window.
+	model.setLogger(Logger.IJ_LOGGER);
+	
+	
+	//------------------------
+	// Prepare settings object
+	//------------------------
+	       
+	Settings settings = new Settings();
+	
+	//---------------------------------------
+	// Building a settings object from a file
+	//---------------------------------------
+	  
+	// Reading the Settings object is actually currently complicated. The 
+	// reader wants to initialize properly everything you saved in the file,
+	// including the spot, edge, track analyzers, the filters, the detector,
+	// the tracker, etc...
+	// It can do that, but you must provide the reader with providers, that
+	// are able to instantiate the correct TrackMate Java classes from
+	// the XML data.
+	  
+	// We start by creating an empty settings object
+	Settings settings = new Settings();
+	  
+	// Then we create all the providers, and point them to the target model:
+	DetectorProvider detectorProvider= new DetectorProvider();
+	TrackerProvider trackerProvider= new TrackerProvider();
+	SpotAnalyzerProvider spotAnalyzerProvider    = new SpotAnalyzerProvider();
+	EdgeAnalyzerProvider edgeAnalyzerProvider    = new EdgeAnalyzerProvider();
+	TrackAnalyzerProvider trackAnalyzerProvider   = new TrackAnalyzerProvider();
+	
+	// Ouf! now we can flesh out our settings object:
+	reader.readSettings(settings, detectorProvider, trackerProvider, spotAnalyzerProvider, edgeAnalyzerProvider, trackAnalyzerProvider);
+	  
+	//logger.log(str("\n\nSETTINGS:"));
+	//logger.log(str(settings));
+	
+	settings.setFrom(imp);
+	settings.addSpotAnalyzerFactory(new SpotIntensityAnalyzerFactory());
+	settings.addSpotAnalyzerFactory(new SpotContrastAndSNRAnalyzerFactory());
+	
+	
+	
+	
+	TrackMate trackmate = new TrackMate(model, settings);
+	print("Trackmate created");
+	
+	
+	trackmate.execDetection();
+	print("execDetection done");
+	
+	trackmate.execInitialSpotFiltering();
+	print("execInitialSpotFiltering done");
+	
+	trackmate.computeSpotFeatures(true);
+	print("computeSpotFeatures done");
+	
+	trackmate.execSpotFiltering(true);
+	print("execSpotFiltering done");
+	
+	/*
+	trackmate.execTracking();
+	print("execTracking done");
+	
+	trackmate.computeTrackFeatures(true);
+	print("computeTrackFeatures done");
+	
+	trackmate.execTrackFiltering(true);
+	print("trackFiltering done");
+	*/
+	
+	if(!trackmate.checkInput())
+	    print((String)trackmate.getErrorMessage());
+	
+	
+	if(!trackmate.process())
+	    print((String)trackmate.getErrorMessage());
+	
+	print("- get results");
+	
+	int nSpots = trackmate.getModel().getSpots().getNSpots(false);
+	print("Found " + nSpots + " spots");
+	
+	int tracks= trackmate.getModel().getTrackModel().nTracks(true);
+	model.getLogger().log("Found " +  Integer.toString(tracks) + " tracks.");
+	    
+	SelectionModel selectionModel = new SelectionModel(model);
+	HyperStackDisplayer displayer = new HyperStackDisplayer(model, selectionModel, imp);
+	displayer.render();
+	displayer.refresh();
+	   
+	// The feature model, that stores edge and track features.
+	FeatureModel fm = model.getFeatureModel();
+	Set IDs=new HashSet(model.getTrackModel().trackIDs(true));
+	
+	for (int id : IDs){
+	// Fetch the track feature from the feature model.
+	    double v = fm.getTrackFeature(id, "TRACK_MEAN_SPEED");
+	    model.getLogger().log("");
+	    model.getLogger().log("Track " + Integer.toString(id) + ": mean velocity = " + Double.toString(v) + " " + model.getSpaceUnits() + "/" + model.getTimeUnits());
+	       
+	    Set track = new HashSet(model.getTrackModel().trackSpots(id));
+	    double maxMedian=-1.0;
+	    double maxT=-1.0;
+	    double maxX=-1.0;
+	    double maxY=-1.0;
+	    for (Spot spot : track){
+	        int sid = spot.ID();
+	        // Fetch spot features directly from spot. 
+	        double x=spot.getFeature("POSITION_X");
+	        double y=spot.getFeature("POSITION_Y");
+	        double t=spot.getFeature("FRAME");
+	        double q=spot.getFeature("QUALITY");
+	        double snr=spot.getFeature("SNR"); 
+	        double mean=spot.getFeature("MEAN_INTENSITY");
+	        double median=spot.getFeature("MEDIAN_INTENSITY");
+	        model.getLogger().log("\tspot ID = " + Integer.toString(sid) + ": x="+ Double.toString(x)+", y="+Double.toString(y)+", t="+Double.toString(t)+", q="+Double.toString(q) + ", snr="+Double.toString(snr) + ", mean = " +Double.toString(mean));
+	        if(median>maxMedian){
+	        	maxMedian=median;
+	        	maxT=t;
+	        	maxX=x;
+	        	maxY=y;	        	
+	        }
+	    }
+	    	rt.incrementCounter();
+	    	rt.addValue("Stack",imageName);
+	    	rt.addValue("Track_ID",id);
+	    	rt.addValue("Brightest_Frame",maxT);
+			rt.addValue("median_intensity",maxMedian);
+			rt.addValue("X_position",maxX);
+			rt.addValue("Y_position",maxY);
+	}
+	new CaptureOverlayAction().execute(trackmate);
+	ImagePlus imp2=IJ.getImage();
+	IJ.save(imp2, dir.getPath()+"\\"+"Overlay"+imp.getTitle());
+	rt.saveAs(dir.getPath()+"\\"+"PartialResultsTable"+System.currentTimeMillis()+".csv");
+}
+for (File image : images){
+	if(image.getName().toLowerCase().endsWith(".tif")){
+	IJ.run("Close All", "");
+	System.gc();
+	analyzeTrack(image.getPath());		
+	}
+}
+rt.saveAs(dir.getPath()+"\\"+"FinalResultsTable"+System.currentTimeMillis()+".csv");
+print("done");
