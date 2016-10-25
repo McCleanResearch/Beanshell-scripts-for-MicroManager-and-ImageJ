@@ -33,26 +33,10 @@ microfluidic channel. I also included "TrackMate1_exampleOutput.csv" to show an 
 	Run the Script.
 	Follow the prompts
 
-
-
-
-
-The attached script does everything that we talked about. I have also attached a .csv file which shows you what the output looks like, and a trackMate.xml configuration file which you may want to use.
-
-Step 1:
-Move all of the stacks  that are similar to "Testing 7_11_2016 bent ZstackP0_1_MMStack_Pos0.ome.tif" into a single directory.
-
-Step 2:
-To run the script, open Fiji>Plugins>Macros>Record.
-Click the rectangle (or anything really), select Record:Beanshell, then click "Create"
-Then, open the attached .bsh script through File>Open
-
-Step 3:
-Run the Script.
-Follow the prompts
-
-Step 4: 
-Analyze the data. Make a nice graph :)
-
-OPTIONAL- You could also create your own trackmate.xml file to set different configurations. 
-NOTE- When analyzing your data, note that I set the height of each pixel to 3.333 microns and the width to 1 micron. These are not realistic values, but they bias the tracking against vertically moving tracks (like we had talked about).
+	Step 4: 
+	Analyze the data. Make a nice graph :)
+	Note that the ResultsTable created through FIJI will have column headers, but the CSV file will not. The column headers are
+	Stack Name, Track_ID, Brightest Frame for that track, median intensity of brightest spot in that track, X_Position of that spot, 	 Y_Position of that spot 
+	
+	OPTIONAL- You could also create your own trackmate.xml file to set different spot thresholds and track thresholds. 
+	NOTE- When analyzing your data, note that I set the height of each pixel to 3.333 microns and the width to 1 micron. These are 		not realistic values, but they bias the tracking against vertically moving tracks (which was useful in the original 			implementation). For unbiased tracking, use: "IJ.run(imp, "Set Scale...", "distance=1 known=1 pixel=1 unit=µm");"
